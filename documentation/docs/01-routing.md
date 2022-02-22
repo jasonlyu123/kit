@@ -196,7 +196,7 @@ export async function post({ request }) {
 </form>
 ```
 
-If you request the route with an `accept: application/json` header, SvelteKit will render the endpoint data as JSON, rather than the page as HTML.
+If you request the route with an `accept: application/json` header, SvelteKit will render the endpoint data as JSON, rather than the page as HTML. You can also get the raw data by appending `/__data.json` to the URL, e.g. `/items/__data.json`.
 
 #### Body parsing
 
@@ -274,6 +274,15 @@ Most commonly, endpoints exist to provide data to the page with which they're pa
 
 > Support for streaming request and response bodies is [coming soon](https://github.com/sveltejs/kit/issues/3419).
 
+Standalone endpoints can be given a file extension if desired, or accessed directly if not:
+
+| filename                      | endpoint   |
+| ----------------------------- | ---------- |
+| src/routes/data/index.json.js | /data.json |
+| src/routes/data.json.js       | /data.json |
+| src/routes/data/index.js      | /data      |
+| src/routes/data.js            | /data      |
+
 ### Private modules
 
 Files and directories with a leading `_` or `.` (other than [`.well-known`](https://en.wikipedia.org/wiki/Well-known_URI)) are private by default, meaning that they do not create routes (but can be imported by files that do). You can configure which modules are considered public or private with the [`routes`](/docs/configuration#routes) configuration.
@@ -333,7 +342,7 @@ src/routes/[...catchall].svelte
 
 #### Fallthrough routes
 
-In rare cases, the ordering above might not be want you want for a given path. For example, perhaps `/foo-abc` should resolve to `src/routes/foo-[bar].svelte`, but `/foo-def` should resolve to `src/routes/[b].svelte`.
+In rare cases, the ordering above might not be what you want for a given path. For example, perhaps `/foo-abc` should resolve to `src/routes/foo-[bar].svelte`, but `/foo-def` should resolve to `src/routes/[b].svelte`.
 
 Higher priority routes can _fall through_ to lower priority routes by returning `{ fallthrough: true }`, either from `load` (for pages) or a request handler (for endpoints):
 

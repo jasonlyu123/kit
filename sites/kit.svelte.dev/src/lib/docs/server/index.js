@@ -8,6 +8,7 @@ import 'prism-svelte';
 import { extract_frontmatter, transform } from './markdown';
 import { getHighlighter } from 'shiki';
 import { runSvelteTwoSlash } from './svelte-twoslash';
+import { types } from '../../../../../../documentation/types.js';
 
 const languages = {
 	bash: 'bash',
@@ -25,6 +26,12 @@ const base = '../../documentation';
 
 /**@type {import('shiki').Highlighter} */
 let highlighter;
+const type_regex = new RegExp(
+	`(import\\(&apos;@sveltejs\\/kit&apos;\\)\\.)?\\b(${types
+		.map((type) => type.name)
+		.join('|')})\\b`,
+	'g'
+);
 
 /**
  * @param {string} dir
@@ -36,39 +43,46 @@ export async function read_file(dir, file) {
 
 	const slug = match[1];
 
-	const markdown = fs.readFileSync(`${base}/${dir}/${file}`, 'utf-8');
+	const markdown = fs.readFileSync(`${base}/${dir}/${file}`, 'utf-8').replace('**TYPES**', () => {
+		return types
+			.map((type) => `#### ${type.name}\n\n${type.comment}\n\n\`\`\`ts\n${type.snippet}\n\`\`\``)
+			.join('\n\n');
+	});
 
 	if (!highlighter) {
 		highlighter = await getHighlighter({ theme: 'css-variables' });
 	}
 
-	return {
-		file: `${dir}/${file}`,
-		slug: match[1],
-		// third argument is a gross hack to accommodate FAQ
-		...parse(
-			markdown,
-			file,
-			dir === 'faq' ? slug : undefined,
-			(/** @type {string} */ source, /** @type {string} */ lang) => {
-				let file = '';
+	const { metadata, body } = extract_frontmatter(markdown);
 
-				source = source
-					.replace(/\/\/\/ file: (.+)\n/, (match, value) => {
-						file = value;
-						return '';
-					})
-					.replace(/^(    )+/gm, (match) => {
-						// for no good reason at all, marked replaces tabs with spaces
-						let tabs = '';
-						for (let i = 0; i < match.length; i += 4) {
-							tabs += '\t';
-						}
-						return tabs;
-					});
+	const { content } = parse({
+		body,
+		file,
+		// gross hack to accommodate FAQ
+		slug: dir === 'faq' ? slug : undefined,
+		code: (source, language, current) => {
+			let file = '';
+			let html = '';
 
-				if (lang === 'js' || lang === 'ts') {
-					const twoslash = runTwoSlash(source, lang, {
+			source = source
+				.replace(/\/\/\/ file: (.+)\n/, (match, value) => {
+					file = value;
+					return '';
+				})
+				.replace(/^([\-\+])?((?:    )+)/gm, (match, prefix = '', spaces) => {
+					if (prefix && language !== 'diff') return match;
+
+					// for no good reason at all, marked replaces tabs with spaces
+					let tabs = '';
+					for (let i = 0; i < spaces.length; i += 4) {
+						tabs += '  ';
+					}
+					return prefix + tabs;
+				});
+
+			if (language === 'js' || language == 'svelte') {
+				if (language === 'js') {
+					const twoslash = runTwoSlash(source, language, {
 						defaultCompilerOptions: {
 							allowJs: true,
 							checkJs: true,
@@ -76,7 +90,7 @@ export async function read_file(dir, file) {
 						}
 					});
 
-					const html = renderCodeToHTML(
+					html = renderCodeToHTML(
 						twoslash.code,
 						'ts',
 						{ twoslash: true },
@@ -84,40 +98,94 @@ export async function read_file(dir, file) {
 						highlighter,
 						twoslash
 					);
+				}
 
-					// preserve blank lines in output (maybe there's a more correct way to do this?)
-					return `<div class="code-block">${file ? `<h5>${file}</h5>` : ''}${html.replace(
-						/<div class='line'><\/div>/g,
-						'<div class="line"> </div>'
-					)}</div>`;
-				} else if (lang === 'svelte') {
+				if (language === 'svelte') {
 					const twoslash = runSvelteTwoSlash(source);
 
-					const html = renderCodeToHTML(
+					html = renderCodeToHTML(
 						twoslash.code,
-						lang,
+						language,
 						{ twoslash: true },
 						{},
 						highlighter,
 						twoslash
 					);
-
-					return `<div class="code-block">${file ? `<h5>${file}</h5>` : ''}${html.replace(
-						/<div class='line'><\/div>/g,
-						'<div class="line"> </div>'
-					)}</div>`;
 				}
 
-				const plang = languages[lang];
+				// preserve blank lines in output (maybe there's a more correct way to do this?)
+				html = `<div class="code-block">${file ? `<h5>${file}</h5>` : ''}${html.replace(
+					/<div class='line'><\/div>/g,
+					'<div class="line"> </div>'
+				)}</div>`;
+			} else if (language === 'diff') {
+				const lines = source.split('\n').map((content) => {
+					let type = null;
+					if (/^[\+\-]/.test(content)) {
+						type = content[0] === '+' ? 'inserted' : 'deleted';
+						content = content.slice(1);
+					}
+
+					return {
+						type,
+						content
+					};
+				});
+
+				html = `<div class="code-block"><pre class="language-diff"><code>${lines
+					.map((line) => {
+						if (line.type) return `<span class="${line.type}">${line.content}\n</span>`;
+						return line.content + '\n';
+					})
+					.join('')}</code></pre></div>`;
+			} else {
+				const plang = languages[language];
 				const highlighted = plang
-					? PrismJS.highlight(source, PrismJS.languages[plang], lang)
+					? PrismJS.highlight(source, PrismJS.languages[plang], language)
 					: source.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
-				return `<div class="code-block">${
+				html = `<div class="code-block">${
 					file ? `<h5>${file}</h5>` : ''
 				}<pre class='language-${plang}'><code>${highlighted}</code></pre></div>`;
 			}
-		)
+
+			type_regex.lastIndex = 0;
+
+			return html
+				.replace(type_regex, (match, prefix, content) => {
+					if (content === current) {
+						// we don't want e.g. RequestHandler to link to RequestHandler
+						return match;
+					}
+
+					const link = `<a href="/docs/types#sveltejs-kit-${slugify(content)}">${content}</a>`;
+					return `${prefix || ''}${link}`;
+				})
+				.replace(
+					/^(\s+)<span class="token comment">([\s\S]+?)<\/span>\n/gm,
+					(match, intro_whitespace, content) => {
+						// we use some CSS trickery to make comments break onto multiple lines while preserving indentation
+						const lines = (intro_whitespace + content).split('\n');
+						return lines
+							.map((line) => {
+								const match = /^(\s*)(.*)/.exec(line);
+								const indent = (match[1] ?? '').replace(/\t/g, '  ').length;
+
+								return `<span class="token comment wrapped" style="--indent: ${indent}ch">${
+									line ?? ''
+								}</span>`;
+							})
+							.join('');
+					}
+				);
+		}
+	});
+
+	return {
+		file: `${dir}/${file}`,
+		slug: match[1],
+		title: metadata.title,
+		content
 	};
 }
 
@@ -168,37 +236,58 @@ export function read_headings(dir) {
 
 			const slug = match[1];
 
-			const markdown = fs.readFileSync(`${base}/${dir}/${file}`, 'utf-8');
+			const markdown = fs
+				.readFileSync(`${base}/${dir}/${file}`, 'utf-8')
+				.replace('**TYPES**', () => {
+					return types.map((type) => `#### ${type.name}`).join('\n\n');
+				});
+
+			const { body, metadata } = extract_frontmatter(markdown);
+
+			const { sections } = parse({
+				body,
+				file,
+				// gross hack to accommodate FAQ
+				slug: dir === 'faq' ? slug : undefined,
+				code: () => ''
+			});
 
 			return {
-				file: `${dir}/${file}`,
 				slug: match[1],
-				// third argument is a gross hack to accommodate FAQ
-				...parse(markdown, file, dir === 'faq' ? slug : undefined, () => '')
+				title: metadata.title,
+				sections
 			};
 		})
 		.filter(Boolean);
 }
 
 /**
- * @param {string} markdown
- * @param {string} file
- * @param {string} [main_slug]
+ * @param {{
+ *   body: string;
+ *   file: string;
+ *   slug: string;
+ *   code: (source: string, language: string, current: string) => string;
+ * }} opts
  */
-function parse(markdown, file, main_slug, code) {
-	const { body, metadata } = extract_frontmatter(markdown);
-
-	const headings = main_slug ? [main_slug] : [];
+function parse({ body, file, slug, code }) {
+	const headings = slug ? [slug] : [];
 	const sections = [];
 
 	let section;
 
+	// this is a bit hacky, but it allows us to prevent type declarations
+	// from linking to themselves
+	let current = '';
+
 	const content = transform(body, {
 		heading(html, level) {
 			const title = html
+				.replace(/<\/?code>/g, '')
 				.replace(/&quot;/g, '"')
 				.replace(/&lt;/g, '<')
 				.replace(/&gt;/g, '>');
+
+			current = title;
 
 			const normalized = slugify(title);
 
@@ -226,11 +315,10 @@ function parse(markdown, file, main_slug, code) {
 
 			return `<h${level} id="${slug}">${html}<a href="#${slug}" class="anchor"><span class="visually-hidden">permalink</span></a></h${level}>`;
 		},
-		code
+		code: (source, language) => code(source, language, current)
 	});
 
 	return {
-		title: metadata.title,
 		sections,
 		content
 	};
