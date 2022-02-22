@@ -16,7 +16,6 @@ const svelteTsPath = dirname(require.resolve('svelte2tsx'));
 const svelteTsxFiles = ['./svelte-shims.d.ts', './svelte-jsx.d.ts', './svelte-native-jsx.d.ts'].map(
 	(f) => resolve(svelteTsPath, f)
 );
-const { createLanguageService } = ts;
 
 const lineBreakRegex = /\r\n?|\n/g;
 
@@ -31,63 +30,20 @@ export function runSvelteTwoSlash(source) {
 	});
 	const lineOffsets = getLineOffsets(source);
 
-	let generated = code.code;
-
-	let prependLines = 0;
-
-	/**@param {string} line  */
-	const prependLine = (line) => {
-		generated = line + '\n' + generated;
-
-		prependLines++;
-	};
-
-	for (const path of svelteTsxFiles) {
-		prependLine(`/// <reference path="${path}" />`);
-	}
+	const generated =
+		svelteTsxFiles.map((file) => `/// <reference path="${file}" />\n`).join('') + code.code;
+	const prependLines = svelteTsxFiles.length;
 
 	const mapToOriginalPosition = createSourceMapper({
 		...code.map,
 		version: code.map.version.toString()
 	});
 
-	const generatedOffset = getLineOffsets(generated);
-
 	const twoslash = runTwoSlash(generated, 'js', {
 		defaultCompilerOptions: {
 			checkJs: true
 		},
-		tsModule: {
-			...ts,
-			createLanguageService(...args) {
-				const ls = createLanguageService(...args);
-				const { getSemanticDiagnostics } = ls;
-
-				ls.getSemanticDiagnostics = (filename) => {
-					// filter out errors from generated code
-					const errors = getSemanticDiagnostics(filename);
-					const file = ls.getProgram()?.getSourceFile(filename);
-					if (!file) {
-						return errors;
-					}
-
-					const removed = checkRemovedLines(generated, file.getFullText());
-					const removeLineMapper = createRemoveLineMapper(removed);
-					const result = errors.filter((e) => {
-						const position = positionAt(e.start, generated, generatedOffset);
-						const originalPosition = mapToOriginalPosition(
-							removeLineMapper.mapToOriginalPosition(position)
-						);
-
-						return originalPosition.line > 0 && originalPosition.character >= 0;
-					});
-
-					return result;
-				};
-
-				return ls;
-			}
-		}
+		tsModule: decorateTs(generated, mapToOriginalPosition)
 	});
 
 	const removeLinesMap = checkRemovedLines(generated, twoslash.code);
@@ -106,57 +62,8 @@ export function runSvelteTwoSlash(source) {
 	const processedLineOffsets = getLineOffsets(processed);
 	const sourceRemoveLineMapper = createRemoveLineMapper(sourceRemoveLineMap);
 
-	const staticQuickInfos = twoslash.staticQuickInfos
-		.map((quickInfo) =>
-			mapTwoSlashInfo(
-				mapToOriginalPosition,
-				source,
-				{
-					...quickInfo,
-					line:
-						removeLineMapper.mapToOriginalPosition({
-							line: quickInfo.line,
-							character: quickInfo.character
-						}).line - prependLines
-				},
-				lineOffsets
-			)
-		)
-		.filter((info) => info.line > 0 && info.character > 0 && info.targetString !== 'render')
-		.map((quickInfo) =>
-			mapTwoSlashInfo(
-				sourceRemoveLineMapper.mapToGeneratedPosition,
-				processed,
-				quickInfo,
-				processedLineOffsets
-			)
-		);
-
-	const errors = twoslash.errors
-		.map((error) =>
-			mapTwoSlashInfo(
-				mapToOriginalPosition,
-				source,
-				{
-					...error,
-					line:
-						removeLineMapper.mapToOriginalPosition({
-							line: error.line - prependLines,
-							character: error.character
-						}).line - prependLines
-				},
-				lineOffsets
-			)
-		)
-		.filter((info) => info.line > 0 && info.character > 0)
-		.map((quickInfo) =>
-			mapTwoSlashInfo(
-				sourceRemoveLineMapper.mapToGeneratedPosition,
-				processed,
-				quickInfo,
-				processedLineOffsets
-			)
-		);
+	const staticQuickInfos = Array.from(mapInfoToResult(twoslash.staticQuickInfos));
+	const errors = Array.from(mapInfoToResult(twoslash.errors));
 
 	return {
 		...twoslash,
@@ -164,6 +71,40 @@ export function runSvelteTwoSlash(source) {
 		errors,
 		code: processed
 	};
+
+	/**
+	 * @template {Position} T
+	 * @param {Iterable<T>} infoList
+	 */
+	function* mapInfoToResult(infoList) {
+		for (const info of infoList) {
+			const lineBeforeLineRemoved = removeLineMapper.mapToOriginalPosition({
+				line: info.line,
+				character: info.character
+			}).line;
+
+			const lineWithoutPrependLines = lineBeforeLineRemoved - prependLines;
+			const infoWithOriginalPosition = mapTwoSlashInfo(
+				mapToOriginalPosition,
+				source,
+				{
+					...info,
+					line: lineWithoutPrependLines
+				},
+				lineOffsets
+			);
+			const infoWithProcessedPosition = mapTwoSlashInfo(
+				sourceRemoveLineMapper.mapToGeneratedPosition,
+				processed,
+				infoWithOriginalPosition,
+				processedLineOffsets
+			);
+
+			if (info.line > 0 && info.character > 0) {
+				yield infoWithProcessedPosition;
+			}
+		}
+	}
 }
 
 /**
@@ -188,7 +129,7 @@ function mapTwoSlashInfo(mapper, source, position, lineOffsets) {
 /**
  * Get the offset of the line and character position
  * @param {{line: number, character: number}} position Line and character position
- * @param {string} text The text for which the offset should be retrived
+ * @param {string} text The text for which the offset should be retrieved
  * @param {number[]} lineOffsets number Array with offsets for each line. Computed if not given
  */
 function offsetAt(position, text, lineOffsets = getLineOffsets(text)) {
@@ -242,7 +183,7 @@ function clamp(num, min, max) {
 /**
  * Get the line and character based on the offset
  * @param {number} offset The index of the position
- * @param {string} text The text for which the position should be retrived
+ * @param {string} text The text for which the position should be retrieved
  * @param lineOffsets number Array with offsets for each line. Computed if not given
  * @returns {{ line: number, character: number }}
  */
@@ -383,4 +324,48 @@ function removeLinesFromSource(source, removedLines) {
 
 	const sourceLines = source.split(lineBreakRegex);
 	return sourceLines.filter((_, index) => !removedLines.includes(index)).join('\n');
+}
+
+/**
+ * return patched version of typescript
+ * to filter out diagnostics so that ts-twoslash
+ * won't throw errors in svelte2tsx generated code
+ * @param {string} generated
+ * @param {SourceMapper} mapToOriginalPosition
+ * @returns {typeof import('typescript')}
+ */
+function decorateTs(generated, mapToOriginalPosition) {
+	const generatedOffset = getLineOffsets(generated);
+
+	return {
+		...ts,
+		createLanguageService(...args) {
+			const ls = ts.createLanguageService(...args);
+			const { getSemanticDiagnostics } = ls;
+
+			ls.getSemanticDiagnostics = (filename) => {
+				// filter out errors from generated code
+				const errors = getSemanticDiagnostics(filename);
+				const file = ls.getProgram()?.getSourceFile(filename);
+				if (!file) {
+					return errors;
+				}
+
+				const removed = checkRemovedLines(generated, file.getFullText());
+				const removeLineMapper = createRemoveLineMapper(removed);
+				const result = errors.filter((e) => {
+					const position = positionAt(e.start, generated, generatedOffset);
+					const originalPosition = mapToOriginalPosition(
+						removeLineMapper.mapToOriginalPosition(position)
+					);
+
+					return originalPosition.line > 0 && originalPosition.character >= 0;
+				});
+
+				return result;
+			};
+
+			return ls;
+		}
+	};
 }
