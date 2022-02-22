@@ -96,10 +96,10 @@ The returned `body` corresponds to the page's props:
 /// file: src/routes/items/[id].svelte
 <script>
 	// populated with data from the endpoint
+	/**@type {{ title: string }}*/
 	export let item;
 </script>
 
-<h1>{item.title}</h1>
 ```
 
 #### POST, PUT, PATCH, DELETE
@@ -167,12 +167,17 @@ export async function post({ request }) {
 ```svelte
 /// file: src/routes/items.svelte
 <script>
+	import Preview from './Preview.svelte';
+	/**@typedef {{ id: string }} Item*/
+	/**@typedef {{}} ValidationError*/
 	// The page always has access to props from `get`...
+	/**@type {Item[]}*/
 	export let items;
 
 	// ...plus props from `post` when the page is rendered
 	// in response to a POST request, for example after
 	// submitting the form below
+	/**@type {Record<string, ValidationError>}}*/
 	export let errors;
 </script>
 
@@ -335,6 +340,8 @@ Higher priority routes can _fall through_ to lower priority routes by returning 
 ```svelte
 /// file: src/routes/foo-[bar].svelte
 <script context="module">
+// @errors: 2366
+	/** @type {import('@sveltejs/kit').Load} */
 	export function load({ params }) {
 		if (params.bar === 'def') {
 			return { fallthrough: true };

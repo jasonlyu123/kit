@@ -78,19 +78,20 @@ For example, if `src/routes/settings/notifications/index.svelte` failed to load,
 
 If an error component has a [`load`](/docs/loading) function, it will be called with `error` and `status` properties:
 
-```html
+```svelte
 <script context="module">
 	/** @type {import('@sveltejs/kit').ErrorLoad} */
 	export function load({ error, status }) {
 		return {
 			props: {
-				title: `${status}: ${error.message}`
+				title: `${status}: ${error?.message}`
 			}
 		};
 	}
 </script>
 
 <script>
+	/**@type {string}*/
 	export let title;
 </script>
 

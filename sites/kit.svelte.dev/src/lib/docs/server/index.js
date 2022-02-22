@@ -1,11 +1,13 @@
 import fs from 'fs';
-import { renderCodeToHTML, runTwoSlash, createShikiHighlighter } from 'shiki-twoslash';
+import { renderCodeToHTML, runTwoSlash } from 'shiki-twoslash';
 import PrismJS from 'prismjs';
 import 'prismjs/components/prism-bash.js';
 import 'prismjs/components/prism-diff.js';
 import 'prismjs/components/prism-typescript.js';
 import 'prism-svelte';
 import { extract_frontmatter, transform } from './markdown';
+import { getHighlighter } from 'shiki';
+import { runSvelteTwoSlash } from './svelte-twoslash';
 
 const languages = {
 	bash: 'bash',
@@ -21,6 +23,9 @@ const languages = {
 
 const base = '../../documentation';
 
+/**@type {import('shiki').Highlighter} */
+let highlighter;
+
 /**
  * @param {string} dir
  * @param {string} file
@@ -33,7 +38,9 @@ export async function read_file(dir, file) {
 
 	const markdown = fs.readFileSync(`${base}/${dir}/${file}`, 'utf-8');
 
-	const highlighter = await createShikiHighlighter({ theme: 'css-variables' });
+	if (!highlighter) {
+		highlighter = await getHighlighter({ theme: 'css-variables' });
+	}
 
 	return {
 		file: `${dir}/${file}`,
@@ -79,6 +86,22 @@ export async function read_file(dir, file) {
 					);
 
 					// preserve blank lines in output (maybe there's a more correct way to do this?)
+					return `<div class="code-block">${file ? `<h5>${file}</h5>` : ''}${html.replace(
+						/<div class='line'><\/div>/g,
+						'<div class="line"> </div>'
+					)}</div>`;
+				} else if (lang === 'svelte') {
+					const twoslash = runSvelteTwoSlash(source);
+
+					const html = renderCodeToHTML(
+						twoslash.code,
+						lang,
+						{ twoslash: true },
+						{},
+						highlighter,
+						twoslash
+					);
+
 					return `<div class="code-block">${file ? `<h5>${file}</h5>` : ''}${html.replace(
 						/<div class='line'><\/div>/g,
 						'<div class="line"> </div>'

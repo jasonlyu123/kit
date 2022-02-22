@@ -320,8 +320,11 @@ importers:
       marked: ^4.0.5
       prism-svelte: ^0.5.0
       prismjs: ^1.26.0
+      shiki: ^0.10.1
       shiki-twoslash: ^3.0.2
+      source-map-js: ^1.0.2
       svelte: ^3.43.0
+      svelte2tsx: ~0.5.0
       typescript: ~4.5.5
       vite: ^2.8.0
       vite-imagetools: ^4.0.3
@@ -335,8 +338,11 @@ importers:
       marked: 4.0.5
       prism-svelte: 0.5.0
       prismjs: 1.26.0
+      shiki: 0.10.1
       shiki-twoslash: 3.0.2
+      source-map-js: 1.0.2
       svelte: 3.44.2
+      svelte2tsx: 0.5.0_svelte@3.44.2+typescript@4.5.5
       typescript: 4.5.5
       vite: 2.8.0
       vite-imagetools: 4.0.3
@@ -5092,6 +5098,14 @@ packages:
       - supports-color
     dev: true
 
+  /shiki/0.10.1:
+    resolution: {integrity: sha512-VsY7QJVzU51j5o1+DguUd+6vmCmZ5v/6gYu4vyYAhzjuNQU6P/vmSy4uQaOhvje031qQMiW0d2BwgMH52vqMng==}
+    dependencies:
+      jsonc-parser: 3.0.0
+      vscode-oniguruma: 1.6.1
+      vscode-textmate: 5.2.0
+    dev: true
+
   /shiki/0.9.11:
     resolution: {integrity: sha512-tjruNTLFhU0hruCPoJP0y+B9LKOmcqUhTpxn7pcJB3fa+04gFChuEmxmrUfOJ7ZO6Jd+HwMnDHgY3lv3Tqonuw==}
     dependencies:
@@ -5855,6 +5869,10 @@ packages:
       rollup: 2.60.2
     optionalDependencies:
       fsevents: 2.3.2
+
+  /vscode-oniguruma/1.6.1:
+    resolution: {integrity: sha512-vc4WhSIaVpgJ0jJIejjYxPvURJavX6QG41vu0mGhqywMkQqulezEqEQ3cO3gc8GvcOpX6ycmKGqRoROEMBNXTQ==}
+    dev: true
 
   /vscode-textmate/5.2.0:
     resolution: {integrity: sha512-Uw5ooOQxRASHgu6C7GVvUxisKXfSgW4oFlO+aa+PAkgmH89O3CXxEEzNRNtHSqtXFTl0nAC1uYj0GMSH27uwtQ==}
