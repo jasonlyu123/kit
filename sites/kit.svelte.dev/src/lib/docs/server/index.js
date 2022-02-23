@@ -7,7 +7,7 @@ import 'prismjs/components/prism-typescript.js';
 import 'prism-svelte';
 import { extract_frontmatter, transform } from './markdown';
 import { getHighlighter } from 'shiki';
-import { runSvelteTwoSlash } from './svelte-twoslash';
+import { run_svelte_twoSlash } from './svelte-twoslash';
 import { types } from '../../../../../../documentation/types.js';
 
 const languages = {
@@ -101,7 +101,7 @@ export async function read_file(dir, file) {
 				}
 
 				if (language === 'svelte') {
-					const twoslash = runSvelteTwoSlash(source);
+					const twoslash = run_svelte_twoSlash(source);
 
 					html = renderCodeToHTML(
 						twoslash.code,

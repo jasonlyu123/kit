@@ -12,29 +12,31 @@ import ts from 'typescript';
  */
 
 const require = createRequire(import.meta.url);
-const svelteTsPath = dirname(require.resolve('svelte2tsx'));
-const svelteTsxFiles = ['./svelte-shims.d.ts', './svelte-jsx.d.ts', './svelte-native-jsx.d.ts'].map(
-	(f) => resolve(svelteTsPath, f)
-);
+const svelte_ts_path = dirname(require.resolve('svelte2tsx'));
+const svelte_tsx_files = [
+	'./svelte-shims.d.ts',
+	'./svelte-jsx.d.ts',
+	'./svelte-native-jsx.d.ts'
+].map((f) => resolve(svelte_ts_path, f));
 
-const lineBreakRegex = /\r\n?|\n/g;
+const line_break_regex = /\r\n?|\n/g;
 
 /**
  * @param {string} source
  * @returns {ReturnType<typeof runTwoSlash>}
  */
-export function runSvelteTwoSlash(source) {
+export function run_svelte_twoSlash(source) {
 	const code = svelte2tsx(source, {
 		mode: 'ts',
 		isTsFile: false
 	});
-	const lineOffsets = getLineOffsets(source);
+	const line_offsets = get_line_offsets(source);
 
 	const generated =
-		svelteTsxFiles.map((file) => `/// <reference path="${file}" />\n`).join('') + code.code;
-	const prependLines = svelteTsxFiles.length;
+		svelte_tsx_files.map((file) => `/// <reference path="${file}" />\n`).join('') + code.code;
+	const prepend_lines = svelte_tsx_files.length;
 
-	const mapToOriginalPosition = createSourceMapper({
+	const map_to_original_position = create_source_mapper({
 		...code.map,
 		version: code.map.version.toString()
 	});
@@ -43,33 +45,33 @@ export function runSvelteTwoSlash(source) {
 		defaultCompilerOptions: {
 			checkJs: true
 		},
-		tsModule: decorateTs(generated, mapToOriginalPosition)
+		tsModule: decorate_ts(generated, map_to_original_position)
 	});
 
-	const removeLinesMap = checkRemovedLines(generated, twoslash.code);
-	const removedLines = removeLinesMap.getRemovedLines();
-	const removeLineMapper = createRemoveLineMapper(removeLinesMap);
-	const sourceRemovedLines = removedLines.map(
+	const remove_lines_map = check_removed_lines(generated, twoslash.code);
+	const removed_lines = remove_lines_map.get_removed_lines();
+	const remove_line_mapper = create_remove_line_mapper(remove_lines_map);
+	const source_removed_lines = removed_lines.map(
 		(line) =>
-			mapToOriginalPosition({
-				line: line - prependLines,
+			map_to_original_position({
+				line: line - prepend_lines,
 				character: 0
 			}).line
 	);
 
-	const processed = removeLinesFromSource(source, sourceRemovedLines);
-	const sourceRemoveLineMap = checkRemovedLines(source, processed);
-	const processedLineOffsets = getLineOffsets(processed);
-	const sourceRemoveLineMapper = createRemoveLineMapper(sourceRemoveLineMap);
+	const processed = remove_lines_from_source(source, source_removed_lines);
+	const source_remove_line_map = check_removed_lines(source, processed);
+	const processed_line_offsets = get_line_offsets(processed);
+	const source_remove_line_mapper = create_remove_line_mapper(source_remove_line_map);
 
-	const staticQuickInfos = Array.from(mapInfoToResult(twoslash.staticQuickInfos)).filter(
+	const static_quick_infos = Array.from(map_info_to_result(twoslash.staticQuickInfos)).filter(
 		(info) => info.targetString !== 'render'
 	);
-	const errors = Array.from(mapInfoToResult(twoslash.errors));
+	const errors = Array.from(map_info_to_result(twoslash.errors));
 
 	return {
 		...twoslash,
-		staticQuickInfos,
+		staticQuickInfos: static_quick_infos,
 		errors,
 		code: processed
 	};
@@ -78,32 +80,32 @@ export function runSvelteTwoSlash(source) {
 	 * @template {Position} T
 	 * @param {Iterable<T>} infoList
 	 */
-	function* mapInfoToResult(infoList) {
+	function* map_info_to_result(infoList) {
 		for (const info of infoList) {
-			const lineBeforeLineRemoved = removeLineMapper.mapToOriginalPosition({
+			const line_before_line_removed = remove_line_mapper.map_to_original_position({
 				line: info.line,
 				character: info.character
 			}).line;
 
-			const lineWithoutPrependLines = lineBeforeLineRemoved - prependLines;
-			const infoWithOriginalPosition = mapTwoSlashInfo(
-				mapToOriginalPosition,
+			const line_without_prepend_lines = line_before_line_removed - prepend_lines;
+			const info_with_original_position = map_two_slash_info(
+				map_to_original_position,
 				source,
 				{
 					...info,
-					line: lineWithoutPrependLines
+					line: line_without_prepend_lines
 				},
-				lineOffsets
+				line_offsets
 			);
-			const infoWithProcessedPosition = mapTwoSlashInfo(
-				sourceRemoveLineMapper.mapToGeneratedPosition,
+			const info_with_processed_position = map_two_slash_info(
+				source_remove_line_mapper.map_to_generated_position,
 				processed,
-				infoWithOriginalPosition,
-				processedLineOffsets
+				info_with_original_position,
+				processed_line_offsets
 			);
 
 			if (info.line > 0 && info.character > 0) {
-				yield infoWithProcessedPosition;
+				yield info_with_processed_position;
 			}
 		}
 	}
@@ -113,17 +115,17 @@ export function runSvelteTwoSlash(source) {
  * @param {SourceMapper} mapper
  * @param {string} source
  * @param {T} position
- * @param {number[]} lineOffsets
+ * @param {number[]} line_offsets
  * @template {Position} T
  * @returns {T}
  */
-function mapTwoSlashInfo(mapper, source, position, lineOffsets) {
-	const originalPosition = mapper(position);
-	const offset = offsetAt(originalPosition, source, lineOffsets);
+function map_two_slash_info(mapper, source, position, line_offsets) {
+	const original_position = mapper(position);
+	const offset = offset_at(original_position, source, line_offsets);
 
 	return {
 		...position,
-		...originalPosition,
+		...original_position,
 		start: offset
 	};
 }
@@ -132,18 +134,18 @@ function mapTwoSlashInfo(mapper, source, position, lineOffsets) {
  * Get the offset of the line and character position
  * @param {{line: number, character: number}} position Line and character position
  * @param {string} text The text for which the offset should be retrieved
- * @param {number[]} lineOffsets number Array with offsets for each line. Computed if not given
+ * @param {number[]} line_offsets number Array with offsets for each line. Computed if not given
  */
-function offsetAt(position, text, lineOffsets = getLineOffsets(text)) {
-	if (position.line >= lineOffsets.length) {
+function offset_at(position, text, line_offsets = get_line_offsets(text)) {
+	if (position.line >= line_offsets.length) {
 		return text.length;
 	} else if (position.line < 0) {
 		return 0;
 	}
-	const lineOffset = lineOffsets[position.line];
-	const nextLineOffset =
-		position.line + 1 < lineOffsets.length ? lineOffsets[position.line + 1] : text.length;
-	return clamp(nextLineOffset, lineOffset, lineOffset + position.character);
+	const line_offset = line_offsets[position.line];
+	const next_line_offset =
+		position.line + 1 < line_offsets.length ? line_offsets[position.line + 1] : text.length;
+	return clamp(next_line_offset, line_offset, line_offset + position.character);
 }
 
 /**
@@ -151,24 +153,24 @@ function offsetAt(position, text, lineOffsets = getLineOffsets(text)) {
  * @param {string} text
  * @returns
  */
-function getLineOffsets(text) {
-	const lineOffsets = [];
-	let isLineStart = true;
+function get_line_offsets(text) {
+	const line_offsets = [];
+	let is_line_start = true;
 	for (let i = 0; i < text.length; i++) {
-		if (isLineStart) {
-			lineOffsets.push(i);
-			isLineStart = false;
+		if (is_line_start) {
+			line_offsets.push(i);
+			is_line_start = false;
 		}
 		const ch = text.charAt(i);
-		isLineStart = ch === '\r' || ch === '\n';
+		is_line_start = ch === '\r' || ch === '\n';
 		if (ch === '\r' && i + 1 < text.length && text.charAt(i + 1) === '\n') {
 			i++;
 		}
 	}
-	if (isLineStart && text.length > 0) {
-		lineOffsets.push(text.length);
+	if (is_line_start && text.length > 0) {
+		line_offsets.push(text.length);
 	}
-	return lineOffsets;
+	return line_offsets;
 }
 
 /**
@@ -186,25 +188,25 @@ function clamp(num, min, max) {
  * Get the line and character based on the offset
  * @param {number} offset The index of the position
  * @param {string} text The text for which the position should be retrieved
- * @param lineOffsets number Array with offsets for each line. Computed if not given
+ * @param line_offsets number Array with offsets for each line. Computed if not given
  * @returns {{ line: number, character: number }}
  */
-export function positionAt(offset, text, lineOffsets = getLineOffsets(text)) {
+export function position_at(offset, text, line_offsets = get_line_offsets(text)) {
 	offset = clamp(offset, 0, text.length);
 
 	let low = 0;
-	let high = lineOffsets.length;
+	let high = line_offsets.length;
 	if (high === 0) {
 		return { line: 0, character: offset };
 	}
 
 	while (low <= high) {
 		const mid = Math.floor((low + high) / 2);
-		const lineOffset = lineOffsets[mid];
+		const line_offset = line_offsets[mid];
 
-		if (lineOffset === offset) {
+		if (line_offset === offset) {
 			return { line: mid, character: 0 };
-		} else if (offset > lineOffset) {
+		} else if (offset > line_offset) {
 			low = mid + 1;
 		} else {
 			high = mid - 1;
@@ -214,52 +216,52 @@ export function positionAt(offset, text, lineOffsets = getLineOffsets(text)) {
 	// low is the least x for which the line offset is larger than the current offset
 	// or array.length if no line offset is larger than the current offset
 	const line = low - 1;
-	return { line, character: offset - lineOffsets[line] };
+	return { line, character: offset - line_offsets[line] };
 }
 
 /**
  *
- * @param {string} svelte2tsxCode
- * @param {string} twoSlashResult
+ * @param {string} svelte2tsx_code
+ * @param {string} two_slash_result
  */
-function checkRemovedLines(svelte2tsxCode, twoSlashResult) {
-	const svelte2tsxLines = svelte2tsxCode.split(lineBreakRegex);
-	const twoSlashResultLines = twoSlashResult.split(lineBreakRegex);
+function check_removed_lines(svelte2tsx_code, two_slash_result) {
+	const svelte2tsx_lines = svelte2tsx_code.split(line_break_regex);
+	const two_slash_result_lines = two_slash_result.split(line_break_regex);
 	let svelte2tsxIndex = 0;
 	/**
 	 * @type {Map<number, number>}
 	 */
-	const generatedToOriginal = new Map();
+	const generated_to_original = new Map();
 
-	for (let index = 0; index < twoSlashResultLines.length; index++) {
-		const twoslashResultLine = twoSlashResultLines[index];
+	for (let index = 0; index < two_slash_result_lines.length; index++) {
+		const twoslash_result_line = two_slash_result_lines[index];
 
-		const correspondIndex = svelte2tsxLines.indexOf(twoslashResultLine, svelte2tsxIndex);
+		const correspond_index = svelte2tsx_lines.indexOf(twoslash_result_line, svelte2tsxIndex);
 
-		if (correspondIndex < 0) {
+		if (correspond_index < 0) {
 			break;
 		}
 
-		generatedToOriginal.set(index, correspondIndex);
+		generated_to_original.set(index, correspond_index);
 
-		svelte2tsxIndex = correspondIndex;
+		svelte2tsxIndex = correspond_index;
 	}
 
-	const originalToGenerated = new Map(
-		Array.from(generatedToOriginal).map(([generated, original]) => [original, generated])
+	const original_to_generated = new Map(
+		Array.from(generated_to_original).map(([generated, original]) => [original, generated])
 	);
 
 	return {
-		generatedToOriginal,
-		originalToGenerated,
-		getRemovedLines
+		generated_to_original,
+		original_to_generated,
+		get_removed_lines
 	};
 
-	function getRemovedLines() {
+	function get_removed_lines() {
 		const lines = [];
 
-		for (let index = 0; index < svelte2tsxLines.length; index++) {
-			if (!originalToGenerated.has(index)) {
+		for (let index = 0; index < svelte2tsx_lines.length; index++) {
+			if (!original_to_generated.has(index)) {
 				lines.push(index);
 			}
 		}
@@ -273,39 +275,39 @@ function checkRemovedLines(svelte2tsxCode, twoSlashResult) {
  * @param {import('source-map-js').RawSourceMap} rawSourceMap
  * @return {SourceMapper}
  */
-function createSourceMapper(rawSourceMap) {
+function create_source_mapper(rawSourceMap) {
 	const consumer = new SourceMapConsumer(rawSourceMap);
 
-	return function mapToOriginalPosition(position) {
-		const oneBasedPosition = consumer.originalPositionFor({
+	return function map_to_original_position(position) {
+		const one_based_position = consumer.originalPositionFor({
 			line: position.line + 1,
 			column: position.character
 		});
 
 		return {
-			line: (oneBasedPosition.line ?? 0) - 1,
-			character: oneBasedPosition.column ?? 0
+			line: (one_based_position.line ?? 0) - 1,
+			character: one_based_position.column ?? 0
 		};
 	};
 }
 
 /**
  *
- * @param {{ originalToGenerated: Map<number, number>, generatedToOriginal: Map<number, number> }} param0
- * @return {{ mapToGeneratedPosition: SourceMapper, mapToOriginalPosition: SourceMapper }}
+ * @param {{ original_to_generated: Map<number, number>, generated_to_original: Map<number, number> }} param0
+ * @return {{ map_to_generated_position: SourceMapper, map_to_original_position: SourceMapper }}
  */
-function createRemoveLineMapper({ originalToGenerated, generatedToOriginal }) {
+function create_remove_line_mapper({ original_to_generated, generated_to_original }) {
 	return {
-		mapToGeneratedPosition(position) {
-			const generatedLine = originalToGenerated.get(position.line);
+		map_to_generated_position(position) {
+			const generated_line = original_to_generated.get(position.line);
 
 			return {
-				line: generatedLine ?? -1,
+				line: generated_line ?? -1,
 				character: position.character
 			};
 		},
-		mapToOriginalPosition(position) {
-			const line = generatedToOriginal.get(position.line);
+		map_to_original_position(position) {
+			const line = generated_to_original.get(position.line);
 
 			return {
 				line: line ?? -1,
@@ -317,15 +319,15 @@ function createRemoveLineMapper({ originalToGenerated, generatedToOriginal }) {
 
 /**
  * @param {string} source
- * @param {number[]} removedLines
+ * @param {number[]} removed_lines
  */
-function removeLinesFromSource(source, removedLines) {
-	if (!removedLines.length) {
+function remove_lines_from_source(source, removed_lines) {
+	if (!removed_lines.length) {
 		return source;
 	}
 
-	const sourceLines = source.split(lineBreakRegex);
-	return sourceLines.filter((_, index) => !removedLines.includes(index)).join('\n');
+	const source_lines = source.split(line_break_regex);
+	return source_lines.filter((_, index) => !removed_lines.includes(index)).join('\n');
 }
 
 /**
@@ -333,11 +335,11 @@ function removeLinesFromSource(source, removedLines) {
  * to filter out diagnostics so that ts-twoslash
  * won't throw errors in svelte2tsx generated code
  * @param {string} generated
- * @param {SourceMapper} mapToOriginalPosition
+ * @param {SourceMapper} map_to_original_position
  * @returns {typeof import('typescript')}
  */
-function decorateTs(generated, mapToOriginalPosition) {
-	const generatedOffset = getLineOffsets(generated);
+function decorate_ts(generated, map_to_original_position) {
+	const generated_offset = get_line_offsets(generated);
 
 	return {
 		...ts,
@@ -353,15 +355,15 @@ function decorateTs(generated, mapToOriginalPosition) {
 					return errors;
 				}
 
-				const removed = checkRemovedLines(generated, file.getFullText());
-				const removeLineMapper = createRemoveLineMapper(removed);
+				const removed = check_removed_lines(generated, file.getFullText());
+				const remove_line_mapper = create_remove_line_mapper(removed);
 				const result = errors.filter((e) => {
-					const position = positionAt(e.start, generated, generatedOffset);
-					const originalPosition = mapToOriginalPosition(
-						removeLineMapper.mapToOriginalPosition(position)
+					const position = position_at(e.start, generated, generated_offset);
+					const original_position = map_to_original_position(
+						remove_line_mapper.map_to_original_position(position)
 					);
 
-					return originalPosition.line > 0 && originalPosition.character >= 0;
+					return original_position.line > 0 && original_position.character >= 0;
 				});
 
 				return result;
