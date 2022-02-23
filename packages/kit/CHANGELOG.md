@@ -1,5 +1,17 @@
 # @sveltejs/kit
 
+## 1.0.0-next.283
+
+### Patch Changes
+
+- create `__data.json` for pathnames with trailing slashes, including `/` ([#4066](https://github.com/sveltejs/kit/pull/4066))
+
+## 1.0.0-next.282
+
+### Patch Changes
+
+- [fix] remove private methods to make Safari 14.1 work ([#4054](https://github.com/sveltejs/kit/pull/4054))
+
 ## 1.0.0-next.281
 
 ### Patch Changes
