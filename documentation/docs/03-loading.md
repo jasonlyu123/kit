@@ -7,7 +7,7 @@ A component that defines a page or a layout can export a `load` function that ru
 If the data for a page comes from its endpoint, you may not need a `load` function. It's useful when you need more flexibility, for example loading data from an external API, which might look like this:
 
 ```svelte
-<!-- src/routes/blog/[slug].svelte -->
+/// file: src/routes/blog/[slug].svelte
 <script context="module">
 	/** @type {import('@sveltejs/kit').Load} */
 	export async function load({ params, fetch, session, stuff }) {
