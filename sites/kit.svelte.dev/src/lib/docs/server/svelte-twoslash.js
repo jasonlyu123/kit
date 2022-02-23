@@ -62,7 +62,9 @@ export function runSvelteTwoSlash(source) {
 	const processedLineOffsets = getLineOffsets(processed);
 	const sourceRemoveLineMapper = createRemoveLineMapper(sourceRemoveLineMap);
 
-	const staticQuickInfos = Array.from(mapInfoToResult(twoslash.staticQuickInfos));
+	const staticQuickInfos = Array.from(mapInfoToResult(twoslash.staticQuickInfos)).filter(
+		(info) => info.targetString !== 'render'
+	);
 	const errors = Array.from(mapInfoToResult(twoslash.errors));
 
 	return {
