@@ -2,7 +2,7 @@ import { createRequire } from 'module';
 import { dirname, resolve } from 'path';
 import { runTwoSlash } from 'shiki-twoslash';
 import { SourceMapConsumer } from 'source-map-js';
-import { svelte2tsx } from 'svelte2tsx';
+// import { svelte2tsx } from 'svelte2tsx';
 import ts from 'typescript';
 
 /**
@@ -18,6 +18,9 @@ const svelte_tsx_files = [
 	'./svelte-jsx.d.ts',
 	'./svelte-native-jsx.d.ts'
 ].map((f) => resolve(svelte_ts_path, f));
+
+// TODO use esm version once it's fixed
+const { svelte2tsx } = require('svelte2tsx');
 
 const line_break_regex = /\r\n?|\n/g;
 
